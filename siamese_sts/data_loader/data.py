@@ -77,7 +77,7 @@ class STSData:
         self.vocab = TEXT.vocab
         logging.info("creating vocabulary completed...")
 
-    def data2tensors(self, data):
+    def data2tensors(self, data, normalization_const, normalize_labels):
         """
         Converts raw data sequences into vectorized sequences as tensors
         """
@@ -114,7 +114,8 @@ class STSData:
 
             ## fetching label for this example
             targets.append(data[self.columns_mapping["label"]].values[index])
-
+        if normalize_labels:
+            targets = [target / normalization_const for target in targets]
         ## padding zeros at the end of tensor till max length tensor
         padded_sent1_tensor = self.pad_sequences(
             vectorized_sents_1, torch.LongTensor(sents1_lengths)
@@ -136,7 +137,7 @@ class STSData:
             raw_sents_2,
         )
 
-    def get_data_loader(self, batch_size=8):
+    def get_data_loader(self, normalization_const, normalize_labels, batch_size=8):
         sts_dataloaders = {}
         for split_name, data in [
             ("train_loader", self.train_set),
@@ -151,7 +152,7 @@ class STSData:
                 sents2_length_tensor,
                 raw_sents_1,
                 raw_sents_2,
-            ) = self.data2tensors(data)
+            ) = self.data2tensors(data, normalization_const, normalize_labels)
             sts_dataset = STSDataset(
                 padded_sent1_tensor,
                 padded_sent2_tensor,

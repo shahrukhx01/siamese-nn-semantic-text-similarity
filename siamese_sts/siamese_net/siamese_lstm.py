@@ -10,7 +10,7 @@ binary classification model
 """
 
 
-class HindiLSTMClassifier(nn.Module):
+class SiameseLSTM(nn.Module):
     def __init__(
         self,
         batch_size,
@@ -18,11 +18,11 @@ class HindiLSTMClassifier(nn.Module):
         hidden_size,
         vocab_size,
         embedding_size,
-        weights,
+        embedding_weights,
         lstm_layers,
         device,
     ):
-        super(HindiLSTMClassifier, self).__init__()
+        super(SiameseLSTM, self).__init__()
         """
         Initializes model layers and loads pre-trained embeddings from task 1
         """
@@ -38,15 +38,13 @@ class HindiLSTMClassifier(nn.Module):
         ## model layers
         # initializing the look-up table.
         self.word_embeddings = nn.Embedding(vocab_size, embedding_size)
-        # assigning the look-up table to the pre-trained hindi word embeddings trained in task1.
+
+        # assigning the look-up table to the pre-trained fasttext word embeddings.
         self.word_embeddings.weight = nn.Parameter(
-            weights.to(self.device), requires_grad=False
+            embedding_weights.to(self.device), requires_grad=True
         )
 
         self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers=lstm_layers)
-        self.out = nn.Linear(hidden_size, output_size)
-        self.sigmoid = nn.Sigmoid()
-        self.dropout_layer = nn.Dropout(p=0.5)
 
     def init_hidden(self, batch_size):
         """
@@ -64,24 +62,37 @@ class HindiLSTMClassifier(nn.Module):
             ),
         )
 
-    def forward(self, batch, lengths):
+    def forward_once(self, batch, lengths):
+        # embedded input of shape = (batch_size, sequence_len,  embedding_size)
+        embeddings = self.word_embeddings(batch)
+
+        # permute embedded input to shape = (sequence_len, batch_size, embedding_size)
+        embeddings = embeddings.permute(1, 0, 2)
+
+        # perform forward pass of LSTM
+        output, (final_hidden_state, final_cell_state) = self.lstm(
+            embeddings, self.hidden
+        )
+
+        return final_hidden_state[-1]
+
+    def similarity_score(self, input1, input2):
+        # Get similarity predictions:
+        dif = input1.squeeze() - input2.squeeze()
+
+        norm = torch.norm(dif, p=1, dim=dif.dim() - 1)
+        y_hat = torch.exp(-norm)
+        y_hat = torch.clamp(y_hat, min=1e-7, max=1.0 - 1e-7)
+        return y_hat
+
+    def forward(self, sent1_batch, sent2_batch, sent1_lengths, sent2_lengths):
         """
         Performs the forward pass for each batch
         """
-        self.hidden = self.init_hidden(
-            batch.size(-1)
-        )  ## init context and hidden weights for lstm cell
+        ## init context and hidden weights for lstm cell
+        self.hidden = self.init_hidden(sent1_batch.size(0))
 
-        embeddings = self.word_embeddings(
-            batch
-        )  # embedded input of shape = (batch_size, num_sequences,  embedding_size)
-        packed_input = pack_padded_sequence(embeddings, lengths)
-        output, (final_hidden_state, final_cell_state) = self.lstm(
-            packed_input, self.hidden
-        )
-        output = self.dropout_layer(final_hidden_state[-1])  ## to avoid overfitting
-        final_output = self.sigmoid(
-            self.out(output)
-        )  ## using sigmoid since binary labels
-
-        return final_output
+        self.sent1_out = self.forward_once(sent1_batch, sent1_lengths)
+        self.sent2_out = self.forward_once(sent2_batch, sent2_lengths)
+        similarity = self.similarity_score(self.sent1_out, self.sent2_out)
+        return similarity

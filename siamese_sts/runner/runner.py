@@ -1,7 +1,13 @@
+from torch.functional import norm
 from siamese_sts.data_loader import STSData
+from siamese_sts.siamese_net.siamese_lstm import SiameseLSTM
+from siamese_sts.trainer.train import train_model
+import torch
+from torch import nn
 
 
 def main():
+    ## define configurations and hyperparameters
     columns_mapping = {
         "sent1": "sentence_A",
         "sent2": "sentence_B",
@@ -9,52 +15,44 @@ def main():
     }
     dataset_name = "sick"
     sick_data = STSData(dataset_name=dataset_name, columns_mapping=columns_mapping)
-    sick_dataloaders = sick_data.get_data_loader()
-    print(sick_dataloaders.keys())
-    """data = HASOCData(config_dict["file_paths"])
-    with open(config_dict["file_paths"]["embeddings_path"], "rb") as f:
-        embedding_weights = pickle.load(f)
+    sick_dataloaders = sick_data.get_data_loader(
+        normalize_labels=True, normalization_const=5.0
+    )
+    batch_size = 8
+    output_size = 1
+    hidden_size = 128
+    vocab_size = len(sick_data.vocab)
+    embedding_size = 300
+    embedding_weights = sick_data.vocab.vectors
+    lstm_layers = 2
+    learning_rate = 1e-1
+    max_epochs = 10
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    ## check whether the pre-trained embeddings are the same shape as of train vocabulary
-    assert embedding_weights.T.shape == (
-        len(data.vocab),
-        config_dict["embedding_size"],
-    ), "Pre-trained embeddings size not equal to size of embedding layer"
+    ## init siamese lstm
+    siamese_lstm = SiameseLSTM(
+        batch_size=batch_size,
+        output_size=output_size,
+        hidden_size=hidden_size,
+        vocab_size=vocab_size,
+        embedding_size=embedding_size,
+        embedding_weights=embedding_weights,
+        lstm_layers=lstm_layers,
+        device=device,
+    )
 
-    ## create model instance  with configurations coming from config file
-    model = HindiLSTMClassifier(
-        batch_size=config_dict["batch_size"],
-        output_size=config_dict["out_size"],
-        vocab_size=len(data.vocab),
-        hidden_size=config_dict["hidden_size"],
-        embedding_size=config_dict["embedding_size"],
-        weights=torch.FloatTensor(embedding_weights.T),
-        lstm_layers=config_dict["lstm_layers"],
-        device=config_dict["device"],
-    ).to(config_dict["device"])
+    ## define optimizer and loss function
+    optimizer = torch.optim.Adam(params=siamese_lstm.parameters(), lr=learning_rate)
 
-    ## get dataloaders for train and test set
-    hasoc_dataloader = data.get_data_loader(batch_size=config_dict["batch_size"])
-
-    ## filtering out embedding weights since they won't be optimized
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
-
-    ## try loading model if it exists as pre-trained on disk
-    try:
-        model.load_state_dict(
-            torch.load(
-                "{}.pth".format(config_dict["model_name"]),
-                map_location=torch.device(config_dict["device"]),
-            )
-        )
-        print("model loaded...")
-    except:
-        print("no prior model")
-    ## training the model on train set
-    # train_model(model, optimizer, hasoc_dataloader, data, max_epochs=config_dict['epochs'],config_dict=config_dict)
-
-    ## evaluate model on test set
-    evaluate_test_set(model, data, hasoc_dataloader, device=config_dict["device"])"""
+    train_model(
+        model=siamese_lstm,
+        optimizer=optimizer,
+        dataloader=sick_dataloaders,
+        data=sick_data,
+        max_epochs=max_epochs,
+        config_dict={"device": device, "model_name": "siamese_lstm"},
+    )
+    ##print(sick_dataloaders.keys())
 
 
 if __name__ == "__main__":

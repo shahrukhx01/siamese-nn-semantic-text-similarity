@@ -103,34 +103,29 @@ python -m spacy download en
     )
 ```
 
-## Siamese LSTM
-[Siamese LSTM Example](https://github.com/shahrukhx01/siamese-nn-semantic-text-similarity/blob/main/siamese_sts/examples/sick_siamese_lstm.py)
+## Siamese BERT
+[Siamese BERT Example](https://github.com/shahrukhx01/siamese-nn-semantic-text-similarity/blob/main/siamese_sts/examples/sick_siamese_bert.py)
 ```python
-    ## init siamese transformer
-    siamese_transformer = SiameseTransformer(
-        batch_size=batch_size,
-        vocab_size=vocab_size,
-        embedding_size=embedding_size,
-        nhead=attention_heads,
-        hidden_size=hidden_size,
-        transformer_layers=transformer_layers,
-        embedding_weights=embedding_weights,
-        device=device,
-        dropout=dropout,
-        max_sequence_len=max_sequence_len,
-    )
+    from siamese_sts.siamese_net.siamese_bert import BertForSequenceClassification
+    ## init siamese bert
+    siamese_bert = BertForSequenceClassification.from_pretrained(model_name)
 
-    ## define optimizer
-    optimizer = torch.optim.Adam(params=siamese_transformer.parameters())
-
-    train_model(
-        model=siamese_transformer,
-        optimizer=optimizer,
-        dataloader=sick_dataloaders,
-        data=sick_data,
-        max_epochs=max_epochs,
-        config_dict={"device": device, "model_name": "siamese_transformer"},
+    ## train model
+    trainer = transformers.Trainer(
+        model=siamese_bert,
+        args=transformers.TrainingArguments(
+            output_dir="./output",
+            overwrite_output_dir=True,
+            learning_rate=1e-5,
+            do_train=True,
+            num_train_epochs=num_epochs,
+            # Adjust batch size if this doesn't fit on the Colab GPU
+            per_device_train_batch_size=batch_size,
+            save_steps=3000,
+        ),
+        train_dataset=sick_dataloader,
     )
+    trainer.train()
 
 ```
 

@@ -3,6 +3,7 @@ from torch import nn
 from sklearn.metrics import r2_score
 import logging
 from tqdm import tqdm
+from torch.autograd import Variable
 
 logging.basicConfig(level=logging.INFO)
 
@@ -33,18 +34,52 @@ def train_model(model, optimizer, dataloader, data, max_epochs, config_dict):
         ) in dataloader["train_loader"]:
 
             model.zero_grad()
-            ## perform forward pass
-            pred = model(
-                sent1.to(device),
-                sent2.to(device),
-                sents1_len.to(device),
-                sents2_len.to(device),
-            )
+            pred = None
+            loss = None
 
-            ## compute loss
-            loss = criterion(
-                pred.to(device), torch.autograd.Variable(targets.float()).to(device)
-            )
+            ## perform forward pass
+            if config_dict["model_name"] == "siamese_lstm_attention":
+                (
+                    pred,
+                    sent1_annotation_weight_matrix,
+                    sent2_annotation_weight_matrix,
+                ) = model(
+                    sent1.to(device),
+                    sent2.to(device),
+                    sents1_len.to(device),
+                    sents2_len.to(device),
+                )
+                sent1_attention_loss = attention_penalty_loss(
+                    sent1_annotation_weight_matrix,
+                    config_dict["self_attention_config"]["penalty"],
+                    device,
+                )
+                sent2_attention_loss = attention_penalty_loss(
+                    sent2_annotation_weight_matrix,
+                    config_dict["self_attention_config"]["penalty"],
+                    device,
+                )
+                ## compute loss
+                loss = (
+                    criterion(
+                        pred.to(device),
+                        torch.autograd.Variable(targets.float()).to(device),
+                    )
+                    + sent1_attention_loss
+                    + sent2_attention_loss
+                )
+            else:
+                pred = model(
+                    sent1.to(device),
+                    sent2.to(device),
+                    sents1_len.to(device),
+                    sents2_len.to(device),
+                )
+
+                ## compute loss
+                loss = criterion(
+                    pred.to(device), torch.autograd.Variable(targets.float()).to(device)
+                )
 
             ## perform backward pass
             loss.backward()
@@ -67,7 +102,9 @@ def train_model(model, optimizer, dataloader, data, max_epochs, config_dict):
         acc = r2_score(y_true, y_pred)
 
         ## compute model metrics on dev set
-        val_acc, val_loss = evaluate_dev_set(model, data, criterion, dataloader, device)
+        val_acc, val_loss = evaluate_dev_set(
+            model, data, criterion, dataloader, config_dict, device
+        )
 
         if val_acc > max_accuracy:
             max_accuracy = val_acc
@@ -84,7 +121,7 @@ def train_model(model, optimizer, dataloader, data, max_epochs, config_dict):
     return model
 
 
-def evaluate_dev_set(model, data, criterion, data_loader, device):
+def evaluate_dev_set(model, data, criterion, data_loader, config_dict, device):
     """
     Evaluates the model performance on dev data
     """
@@ -103,16 +140,52 @@ def evaluate_dev_set(model, data, criterion, data_loader, device):
         _,
     ) in data_loader["val_loader"]:
         ## perform forward pass
-        pred = model(
-            sent1.to(device),
-            sent2.to(device),
-            sents1_len.to(device),
-            sents2_len.to(device),
-        )
-        ## compute loss
-        loss = criterion(
-            pred.to(device), torch.autograd.Variable(targets.float()).to(device)
-        )
+        pred = None
+        loss = None
+
+        ## perform forward pass
+        if config_dict["model_name"] == "siamese_lstm_attention":
+            (
+                pred,
+                sent1_annotation_weight_matrix,
+                sent2_annotation_weight_matrix,
+            ) = model(
+                sent1.to(device),
+                sent2.to(device),
+                sents1_len.to(device),
+                sents2_len.to(device),
+            )
+            sent1_attention_loss = attention_penalty_loss(
+                sent1_annotation_weight_matrix,
+                config_dict["self_attention_config"]["penalty"],
+                device,
+            )
+            sent2_attention_loss = attention_penalty_loss(
+                sent2_annotation_weight_matrix,
+                config_dict["self_attention_config"]["penalty"],
+                device,
+            )
+            ## compute loss
+            loss = (
+                criterion(
+                    pred.to(device),
+                    torch.autograd.Variable(targets.float()).to(device),
+                )
+                + sent1_attention_loss
+                + sent2_attention_loss
+            )
+        else:
+            pred = model(
+                sent1.to(device),
+                sent2.to(device),
+                sents1_len.to(device),
+                sents2_len.to(device),
+            )
+
+            ## compute loss
+            loss = criterion(
+                pred.to(device), torch.autograd.Variable(targets.float()).to(device)
+            )
 
         y_true += list(targets.float())
         y_pred += list(pred.data.float().detach().cpu().numpy())
@@ -121,3 +194,55 @@ def evaluate_dev_set(model, data, criterion, data_loader, device):
     acc = r2_score(y_true, y_pred)
 
     return acc, torch.mean(total_loss.data.float())
+
+
+def attention_penalty_loss(annotation_weight_matrix, penalty_coef, device):
+    """
+    This function computes the loss from annotation/attention matrix
+    to reduce redundancy in annotation matrix and for attention
+    to focus on different parts of the sequence corresponding to the
+    penalty term 'P' in the ICLR paper
+    ----------------------------------
+    'annotation_weight_matrix' refers to matrix 'A' in the ICLR paper
+    annotation_weight_matrix shape: (batch_size, attention_out, seq_len)
+    """
+    batch_size, attention_out_size = annotation_weight_matrix.size(
+        0
+    ), annotation_weight_matrix.size(1)
+    ## this fn computes ||AAT - I|| where norm is the frobenius norm
+    ## taking transpose of annotation matrix
+    ## shape post transpose: (batch_size, seq_len, attention_out)
+    annotation_weight_matrix_trans = annotation_weight_matrix.transpose(1, 2)
+
+    ## corresponds to AAT
+    ## shape: (batch_size, attention_out, attention_out)
+    annotation_mul = torch.bmm(annotation_weight_matrix, annotation_weight_matrix_trans)
+
+    ## corresponds to 'I'
+    identity = torch.eye(annotation_weight_matrix.size(1))
+    ## make equal to the shape of annotation_mul and move it to device
+    identity = Variable(
+        identity.unsqueeze(0)
+        .expand(batch_size, attention_out_size, attention_out_size)
+        .to(device)
+    )
+
+    ## compute AAT - I
+    annotation_mul_difference = annotation_mul - identity
+
+    ## compute the frobenius norm
+    penalty = frobenius_norm(annotation_mul_difference)
+
+    ## compute loss
+    loss = (penalty_coef * penalty / batch_size).type(torch.FloatTensor)
+
+    return loss
+
+
+def frobenius_norm(annotation_mul_difference):
+    """
+    Computes the frobenius norm of the annotation_mul_difference input as matrix
+    """
+    return torch.sum(
+        torch.sum(torch.sum(annotation_mul_difference ** 2, 1), 1) ** 0.5
+    ).type(torch.DoubleTensor)

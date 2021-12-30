@@ -61,6 +61,8 @@ def train_model(model, optimizer, dataloader, data, max_epochs, config_dict):
             ## accumulate train loss
             total_loss += loss
 
+            # print(y_true, y_pred)
+
         ## computing accuracy using sklearn's function
         acc = r2_score(y_true, y_pred)
 

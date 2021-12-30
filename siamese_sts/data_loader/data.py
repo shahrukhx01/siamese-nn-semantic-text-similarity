@@ -114,8 +114,10 @@ class STSData:
 
             ## fetching label for this example
             targets.append(data[self.columns_mapping["label"]].values[index])
+
         if normalize_labels:
             targets = [target / normalization_const for target in targets]
+
         ## padding zeros at the end of tensor till max length tensor
         padded_sent1_tensor = self.pad_sequences(
             vectorized_sents_1, torch.LongTensor(sents1_lengths)
@@ -125,7 +127,7 @@ class STSData:
         )
         sents1_length_tensor = torch.LongTensor(sents1_lengths)  ## casting to long
         sents2_length_tensor = torch.LongTensor(sents2_lengths)  ## casting to long
-        target_tensor = torch.LongTensor(targets)  ## casting to long
+        target_tensor = torch.FloatTensor(targets)  ## casting to long
 
         return (
             padded_sent1_tensor,

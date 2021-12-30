@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from torch.nn import functional as F
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from siamese_sts.utils.utils import similarity_score
 
 """
 Wrapper class using Pytorch nn.Module to create the architecture for our 
@@ -13,14 +12,14 @@ binary classification model
 class SiameseLSTM(nn.Module):
     def __init__(
         self,
-        batch_size,
-        output_size,
-        hidden_size,
-        vocab_size,
-        embedding_size,
-        embedding_weights,
-        lstm_layers,
-        device,
+        batch_size: int,
+        output_size: int,
+        hidden_size: int,
+        vocab_size: int,
+        embedding_size: int,
+        embedding_weights: torch.TensorType,
+        lstm_layers: int,
+        device: str,
     ):
         super(SiameseLSTM, self).__init__()
         """
@@ -76,15 +75,6 @@ class SiameseLSTM(nn.Module):
 
         return final_hidden_state[-1]
 
-    def similarity_score(self, input1, input2):
-        # Get similarity predictions:
-        dif = input1.squeeze() - input2.squeeze()
-
-        norm = torch.norm(dif, p=1, dim=dif.dim() - 1)
-        y_hat = torch.exp(-norm)
-        y_hat = torch.clamp(y_hat, min=1e-7, max=1.0 - 1e-7)
-        return y_hat
-
     def forward(self, sent1_batch, sent2_batch, sent1_lengths, sent2_lengths):
         """
         Performs the forward pass for each batch
@@ -94,5 +84,5 @@ class SiameseLSTM(nn.Module):
 
         self.sent1_out = self.forward_once(sent1_batch, sent1_lengths)
         self.sent2_out = self.forward_once(sent2_batch, sent2_lengths)
-        similarity = self.similarity_score(self.sent1_out, self.sent2_out)
+        similarity = similarity_score(self.sent1_out, self.sent2_out)
         return similarity

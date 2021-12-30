@@ -1,0 +1,7 @@
+sklearn
+torch==1.10.1
+accelerate==0.5.1
+transformers==4.9.2
+spacy==3.2.1
+tqdm==4.49.0
+nltk==3.4.5

@@ -4,10 +4,10 @@ A repository containing comprehensive Neural Networks based implementations for 
 
 download fasttext embeddings
 ```bash
-!curl https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip >> wiki-news-300d-1M.vec.zip
+curl https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip >> wiki-news-300d-1M.vec.zip
 ```
 
 download spacy en model for tokenization
 ```bash
-!python -m spacy download en
+python -m spacy download en
 ```

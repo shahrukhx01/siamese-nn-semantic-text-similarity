@@ -20,10 +20,14 @@ class STSData:
         dataset_name,
         columns_mapping,
         stopwords_path="siamese_sts/data_loader/stopwords-en.txt",
+        model_name="lstm",
+        max_sequence_len=512,
     ):
         """
         Loads data into memory and create vocabulary from text field.
         """
+        self.model_name = model_name
+        self.max_sequence_len = max_sequence_len
         ## load data file into memory
         self.load_data(dataset_name, columns_mapping, stopwords_path)
         self.columns_mapping = columns_mapping
@@ -191,8 +195,12 @@ class STSData:
         Pads zeros at the end of each sequence in data tensor till max
         length of sequence in that batch
         """
+        max_len = self.max_sequence_len
+        if self.model_name == "lstm":
+            max_len = sents1_lengths.max()
+            
         padded_sequence_tensor = torch.zeros(
-            (len(vectorized_sents_1), sents1_lengths.max())
+            (len(vectorized_sents_1), max_len)
         ).long()  ## init zeros tensor
         for idx, (seq, seqlen) in enumerate(
             zip(vectorized_sents_1, sents1_lengths)

@@ -43,6 +43,7 @@ class SiameseTransformer(nn.Module):
         transformer_layers: int,
         embedding_weights: torch.Tensor,
         device: str,
+        max_sequence_len: int,
         dropout: float = 0.5,
     ):
         super().__init__()
@@ -61,15 +62,7 @@ class SiameseTransformer(nn.Module):
             embedding_weights.to(self.device), requires_grad=True
         )
         self.embedding_size = embedding_size
-        self.decoder = nn.Linear(embedding_size, vocab_size)
-
-        self.init_weights()
-
-    def init_weights(self) -> None:
-        initrange = 0.1
-        self.encoder.weight.data.uniform_(-initrange, initrange)
-        self.decoder.bias.data.zero_()
-        self.decoder.weight.data.uniform_(-initrange, initrange)
+        self.linear = nn.Linear(embedding_size * max_sequence_len, hidden_size)
 
     def forward_once(self, src: Tensor) -> Tensor:
         """
@@ -84,10 +77,12 @@ class SiameseTransformer(nn.Module):
         src = self.pos_encoder(src)
 
         output = self.transformer_encoder(src)
+        output = output.reshape(output.shape[0], output.shape[1] * output.shape[2])
 
-        return torch.mean(output, dim=1)
+        return self.linear(output)
 
     def forward(self, sent1_batch, sent2_batch, sent1_lengths, sent2_lengths) -> Tensor:
         sent1_out = self.forward_once(sent1_batch)
         sent2_out = self.forward_once(sent2_batch)
+
         return similarity_score(sent1_out, sent2_out)

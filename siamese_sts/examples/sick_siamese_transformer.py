@@ -13,8 +13,14 @@ def main():
         "sent2": "sentence_B",
         "label": "relatedness_score",
     }
+    max_sequence_len = 128
     dataset_name = "sick"
-    sick_data = STSData(dataset_name=dataset_name, columns_mapping=columns_mapping)
+    sick_data = STSData(
+        dataset_name=dataset_name,
+        columns_mapping=columns_mapping,
+        model_name="transformer",
+        max_sequence_len=max_sequence_len,
+    )
     sick_dataloaders = sick_data.get_data_loader(
         normalize_labels=True, normalization_const=5.0
     )
@@ -27,12 +33,13 @@ def main():
     embedding_weights = sick_data.vocab.vectors
     transformer_layers = 4
     learning_rate = 1e-1
+
     dropout = 0.5
     max_epochs = 20
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     ## init siamese lstm
-    siamese_lstm = SiameseTransformer(
+    siamese_transformer = SiameseTransformer(
         batch_size=batch_size,
         vocab_size=vocab_size,
         embedding_size=embedding_size,
@@ -42,20 +49,20 @@ def main():
         embedding_weights=embedding_weights,
         device=device,
         dropout=dropout,
+        max_sequence_len=max_sequence_len,
     )
 
     ## define optimizer and loss function
-    optimizer = torch.optim.Adam(params=siamese_lstm.parameters())
+    optimizer = torch.optim.Adam(params=siamese_transformer.parameters())
 
     train_model(
-        model=siamese_lstm,
+        model=siamese_transformer,
         optimizer=optimizer,
         dataloader=sick_dataloaders,
         data=sick_data,
         max_epochs=max_epochs,
-        config_dict={"device": device, "model_name": "siamese_lstm"},
+        config_dict={"device": device, "model_name": "siamese_transformer"},
     )
-    ##print(sick_dataloaders.keys())
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ from siamese_sts.data_loader.dataset import STSDataset
 from datasets import load_dataset
 import torchtext
 from torchtext.data.utils import get_tokenizer
+import transformers
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,12 +23,19 @@ class STSData:
         stopwords_path="siamese_sts/data_loader/stopwords-en.txt",
         model_name="lstm",
         max_sequence_len=512,
+        pretrained_model_name="prajjwal1/bert-mini",
+        normalization_const=5.0,
+        normalize_labels=False,
     ):
         """
         Loads data into memory and create vocabulary from text field.
         """
+        self.normalization_const = normalization_const
+        self.normalize_labels = normalize_labels
+        self.pretrained_model_name = pretrained_model_name
         self.model_name = model_name
         self.max_sequence_len = max_sequence_len
+        self.dataset_name = dataset_name
         ## load data file into memory
         self.load_data(dataset_name, columns_mapping, stopwords_path)
         self.columns_mapping = columns_mapping
@@ -81,7 +89,7 @@ class STSData:
         self.vocab = TEXT.vocab
         logging.info("creating vocabulary completed...")
 
-    def data2tensors(self, data, normalization_const, normalize_labels):
+    def data2tensors(self, data):
         """
         Converts raw data sequences into vectorized sequences as tensors
         """
@@ -119,8 +127,8 @@ class STSData:
             ## fetching label for this example
             targets.append(data[self.columns_mapping["label"]].values[index])
 
-        if normalize_labels:
-            targets = [target / normalization_const for target in targets]
+        if self.normalize_labels:
+            targets = [target / self.normalization_const for target in targets]
 
         ## padding zeros at the end of tensor till max length tensor
         padded_sent1_tensor = self.pad_sequences(
@@ -143,7 +151,64 @@ class STSData:
             raw_sents_2,
         )
 
-    def get_data_loader(self, normalization_const, normalize_labels, batch_size=8):
+    def bert_convert_to_features(self, example_batch):
+        tokenizer = transformers.AutoTokenizer.from_pretrained(
+            self.pretrained_model_name
+        )
+        inputs = [
+            [sent1, sent2]
+            for sent1, sent2 in zip(
+                example_batch[self.columns_mapping["sent1"]],
+                example_batch[self.columns_mapping["sent2"]],
+            )
+        ]
+
+        features = tokenizer(
+            inputs,
+            max_length=self.max_sequence_len,
+            truncation=True,
+            padding="max_length",
+        )
+        features["labels"] = example_batch[self.columns_mapping["label"]]
+        if self.normalize_labels:
+            features["labels"] = [
+                target / self.normalization_const for target in features["labels"]
+            ]
+        return features
+
+    def get_dataset_bert(self):
+        """
+        Converts raw data sequences into vectorized sequences as tensors
+        """
+
+        dataset = {"train": load_dataset(self.dataset_name, split="train")}
+        features_dict = {}
+
+        ## get the text sequence from dataframe
+        for phase, phase_dataset in dataset.items():
+            features_dict[phase] = phase_dataset.map(
+                self.bert_convert_to_features,
+                batched=True,
+                load_from_cache_file=False,
+            )
+            print(
+                phase,
+                len(phase_dataset),
+                len(features_dict[phase]),
+            )
+            features_dict[phase].set_format(
+                type="torch",
+                columns=["input_ids", "attention_mask", "labels"],
+            )
+            print(
+                phase,
+                len(phase_dataset),
+                len(features_dict[phase]),
+            )
+
+        return features_dict["train"]
+
+    def get_data_loader(self, batch_size=8):
         sts_dataloaders = {}
         for split_name, data in [
             ("train_loader", self.train_set),
@@ -158,8 +223,8 @@ class STSData:
                 sents2_length_tensor,
                 raw_sents_1,
                 raw_sents_2,
-            ) = self.data2tensors(data, normalization_const, normalize_labels)
-            sts_dataset = STSDataset(
+            ) = self.data2tensors(data)
+            self.sts_dataset = STSDataset(
                 padded_sent1_tensor,
                 padded_sent2_tensor,
                 target_tensor,
@@ -169,7 +234,7 @@ class STSData:
                 raw_sents_2,
             )
             sts_dataloaders[split_name] = torch.utils.data.DataLoader(
-                sts_dataset, batch_size=batch_size
+                self.sts_dataset, batch_size=batch_size
             )
 
         return sts_dataloaders
@@ -198,7 +263,7 @@ class STSData:
         max_len = self.max_sequence_len
         if self.model_name == "lstm":
             max_len = sents1_lengths.max()
-            
+
         padded_sequence_tensor = torch.zeros(
             (len(vectorized_sents_1), max_len)
         ).long()  ## init zeros tensor

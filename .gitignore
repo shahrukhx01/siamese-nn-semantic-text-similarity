@@ -132,3 +132,6 @@ dmypy.json
 *.vec
 *.pt
 .vector_cache
+
+mlruns/*
+output/*

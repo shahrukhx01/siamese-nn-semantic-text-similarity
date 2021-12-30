@@ -51,18 +51,22 @@ class Preprocess:
         """
         return re.sub(self.USERNAME_PATTERN, "", text)
 
-    def perform_preprocessing(self, data):
-        data["clean_text"] = data.text.apply(
+    def perform_preprocessing(self, data, columns_mapping):
+        ## normalizing text to lower case
+        data["clean_sent1"] = data[columns_mapping["sent1"]].apply(
             lambda text: text.lower()
-        )  ## normalizing text to lower case
-        data["clean_text"] = data.clean_text.apply(
-            self.remove_usernames
-        )  ## removing usernames
-        data["clean_text"] = data.clean_text.apply(
-            self.remove_punctuations
-        )  ## removing punctuations
-        data["clean_text"] = data.clean_text.apply(
-            self.remove_stopwords
-        )  ## removing stopwords
+        )
+        data["clean_sent2"] = data[columns_mapping["sent2"]].apply(
+            lambda text: text.lower()
+        )
+        ## removing usernames
+        data["clean_sent1"] = data.clean_sent1.apply(self.remove_usernames)
+        data["clean_sent2"] = data.clean_sent2.apply(self.remove_usernames)
+        ## removing punctuations
+        data["clean_sent1"] = data.clean_sent1.apply(self.remove_punctuations)
+        data["clean_sent2"] = data.clean_sent2.apply(self.remove_punctuations)
+        ## removing stopwords
+        data["clean_sent1"] = data.clean_sent1.apply(self.remove_stopwords)
+        data["clean_sent2"] = data.clean_sent2.apply(self.remove_stopwords)
 
         return data

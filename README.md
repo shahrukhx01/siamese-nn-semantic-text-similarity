@@ -28,9 +28,10 @@ python -m spacy download en
         device=device,
     )
 
-    ## define optimizer and loss function
+    ## define optimizer
     optimizer = torch.optim.Adam(params=siamese_lstm.parameters())
-
+   
+   ## train model
     train_model(
         model=siamese_lstm,
         optimizer=optimizer,
@@ -39,5 +40,97 @@ python -m spacy download en
         max_epochs=max_epochs,
         config_dict={"device": device, "model_name": "siamese_lstm"},
     )
+```
+
+## Siamese BiLSTM with Attention
+[Siamese BiLSTM with Attention Example](https://github.com/shahrukhx01/siamese-nn-semantic-text-similarity/blob/main/siamese_sts/examples/sick_siamese_lstm_attention.py)
+```python
+     ## init siamese lstm
+     siamese_lstm_attention = SiameseBiLSTMAttention(
+        batch_size=batch_size,
+        output_size=output_size,
+        hidden_size=hidden_size,
+        vocab_size=vocab_size,
+        embedding_size=embedding_size,
+        embedding_weights=embedding_weights,
+        lstm_layers=lstm_layers,
+        self_attention_config=self_attention_config,
+        fc_hidden_size=fc_hidden_size,
+        device=device,
+        bidirectional=bidirectional,
+    )
+    
+    ## define optimizer
+    optimizer = torch.optim.Adam(params=siamese_lstm_attention.parameters())
+   
+   ## train model
+    train_model(
+        model=siamese_lstm_attention,
+        optimizer=optimizer,
+        dataloader=sick_dataloaders,
+        data=sick_data,
+        max_epochs=max_epochs,
+        config_dict={"device": device, "model_name": "siamese_lstm_attention"},
+    )
+```
+
+## Siamese Transformer
+[Siamese Transformer Example](https://github.com/shahrukhx01/siamese-nn-semantic-text-similarity/blob/main/siamese_sts/examples/sick_siamese_transformer.py)
+```python
+    ## init siamese bilstm with attention
+    siamese_lstm = SiameseLSTM(
+        batch_size=batch_size,
+        output_size=output_size,
+        hidden_size=hidden_size,
+        vocab_size=vocab_size,
+        embedding_size=embedding_size,
+        embedding_weights=embedding_weights,
+        lstm_layers=lstm_layers,
+        device=device,
+    )
+
+    ## define optimizer
+    optimizer = torch.optim.Adam(params=siamese_lstm.parameters())
+   
+   ## train model
+    train_model(
+        model=siamese_lstm,
+        optimizer=optimizer,
+        dataloader=sick_dataloaders,
+        data=sick_data,
+        max_epochs=max_epochs,
+        config_dict={"device": device, "model_name": "siamese_lstm"},
+    )
+```
+
+## Siamese LSTM
+[Siamese LSTM Example](https://github.com/shahrukhx01/siamese-nn-semantic-text-similarity/blob/main/siamese_sts/examples/sick_siamese_lstm.py)
+```python
+    ## init siamese transformer
+    siamese_transformer = SiameseTransformer(
+        batch_size=batch_size,
+        vocab_size=vocab_size,
+        embedding_size=embedding_size,
+        nhead=attention_heads,
+        hidden_size=hidden_size,
+        transformer_layers=transformer_layers,
+        embedding_weights=embedding_weights,
+        device=device,
+        dropout=dropout,
+        max_sequence_len=max_sequence_len,
+    )
+
+    ## define optimizer
+    optimizer = torch.optim.Adam(params=siamese_transformer.parameters())
+
+    train_model(
+        model=siamese_transformer,
+        optimizer=optimizer,
+        dataloader=sick_dataloaders,
+        data=sick_data,
+        max_epochs=max_epochs,
+        config_dict={"device": device, "model_name": "siamese_transformer"},
+    )
+
 ```
 

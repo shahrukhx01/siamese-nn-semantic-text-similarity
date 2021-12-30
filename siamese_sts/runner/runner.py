@@ -1,15 +1,17 @@
-from data import HASOCData
-from model import HindiLSTMClassifier
-from train import train_model
-from eval import evaluate_test_set
-import torch
-import pickle
-from config import config_dict
-from torch import nn
+from siamese_sts.data_loader import STSData
 
 
 def main():
-    data = HASOCData(config_dict["file_paths"])
+    columns_mapping = {
+        "sent1": "sentence_A",
+        "sent2": "sentence_B",
+        "label": "relatedness_score",
+    }
+    dataset_name = "sick"
+    sick_data = STSData(dataset_name=dataset_name, columns_mapping=columns_mapping)
+    sick_dataloaders = sick_data.get_data_loader()
+    print(sick_dataloaders.keys())
+    """data = HASOCData(config_dict["file_paths"])
     with open(config_dict["file_paths"]["embeddings_path"], "rb") as f:
         embedding_weights = pickle.load(f)
 
@@ -52,7 +54,7 @@ def main():
     # train_model(model, optimizer, hasoc_dataloader, data, max_epochs=config_dict['epochs'],config_dict=config_dict)
 
     ## evaluate model on test set
-    evaluate_test_set(model, data, hasoc_dataloader, device=config_dict["device"])
+    evaluate_test_set(model, data, hasoc_dataloader, device=config_dict["device"])"""
 
 
 if __name__ == "__main__":

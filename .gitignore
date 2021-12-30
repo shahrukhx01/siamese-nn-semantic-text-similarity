@@ -129,4 +129,6 @@ dmypy.json
 .pyre/
 
 .DS_Store
-wiki-news-300d-1M.vec
+*.vec
+*.pt
+.vector_cache

@@ -1,21 +1,16 @@
 import pandas as pd
-import numpy as np
-from preprocess import Preprocess
+from siamese_sts.data_loader.preprocess import Preprocess
 import logging
 import torch
-from torch.utils.data import DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler
-from dataset import STSDataset
+from siamese_sts.data_loader.dataset import STSDataset
 from datasets import load_dataset
-from gensim.models import FastText
 import torchtext
-from torchtext import data
 from torchtext.data.utils import get_tokenizer
 
 logging.basicConfig(level=logging.INFO)
 
 """
-For loading HASOC data loading and preprocessing
+For loading STS data loading and preprocessing
 """
 
 
@@ -24,17 +19,16 @@ class STSData:
         self,
         dataset_name,
         columns_mapping,
-        stopwords_path="./stopwords-en.txt",
-        embedding_size=300,
+        stopwords_path="siamese_sts/data_loader/stopwords-en.txt",
     ):
         """
         Loads data into memory and create vocabulary from text field.
         """
         ## load data file into memory
         self.load_data(dataset_name, columns_mapping, stopwords_path)
+        self.columns_mapping = columns_mapping
         ## create vocabulary over entire dataset before train/test split
         self.create_vocab()
-        self.columns_mapping = columns_mapping
 
     def load_data(self, dataset_name, columns_mapping, stopwords_path):
         """
@@ -63,7 +57,7 @@ class STSData:
             self.train_set["clean_sent1"] + " " + self.train_set["clean_sent2"]
         )
         ## init tokenizer
-        self.en_tokenizer = get_tokenizer("spacy", language="en")
+        self.en_tokenizer = get_tokenizer("spacy", language="en_core_web_sm")
 
         TEXT = torchtext.legacy.data.Field(tokenize=self.en_tokenizer, lower=True)
         LABEL = torchtext.legacy.data.Field(sequential=False, use_vocab=False)

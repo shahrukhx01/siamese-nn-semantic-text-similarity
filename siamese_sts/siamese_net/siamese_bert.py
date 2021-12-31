@@ -116,7 +116,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
             return ((loss,) + output) if loss is not None else output
 
         print(
-            f"loss: {loss.item()}, r2 score: {r2_score(logits.squeeze().detach().numpy(), labels.squeeze().detach().numpy())}"
+            f"loss: {loss.item()}, r2 score: {r2_score(logits.squeeze().detach().cpu().numpy(), labels.squeeze().detach().cpu().numpy())}"
         )
 
         return SequenceClassifierOutput(

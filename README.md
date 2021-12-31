@@ -5,7 +5,9 @@ A repository containing comprehensive Neural Networks based PyTorch implementati
 * Siamese Transformer
 * Siamese BERT.
 
-![4-Figure1-1](https://user-images.githubusercontent.com/6007894/147794847-04eee203-c0ba-42f8-abe1-0e66757e46f2.png)
+
+![1_jyPZCDVLuvW4X_K-jXEJ3g](https://user-images.githubusercontent.com/6007894/147795289-318fad56-3a45-4fec-b436-ba164151d5e3.png)
+
 
 # Usage
 * install dependencies

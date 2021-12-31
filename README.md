@@ -76,7 +76,11 @@ python -m spacy download en
         dataloader=sick_dataloaders,
         data=sick_data,
         max_epochs=max_epochs,
-        config_dict={"device": device, "model_name": "siamese_lstm_attention"},
+        config_dict={
+            "device": device,
+            "model_name": "siamese_lstm_attention",
+            "self_attention_config": self_attention_config,
+        },
     )
 ```
 
@@ -84,28 +88,30 @@ python -m spacy download en
 [Siamese Transformer Example](https://github.com/shahrukhx01/siamese-nn-semantic-text-similarity/blob/main/siamese_sts/examples/sick_siamese_transformer.py)
 ```python
     ## init siamese bilstm with attention
-    siamese_lstm = SiameseLSTM(
+    siamese_transformer = SiameseTransformer(
         batch_size=batch_size,
-        output_size=output_size,
-        hidden_size=hidden_size,
         vocab_size=vocab_size,
         embedding_size=embedding_size,
+        nhead=attention_heads,
+        hidden_size=hidden_size,
+        transformer_layers=transformer_layers,
         embedding_weights=embedding_weights,
-        lstm_layers=lstm_layers,
         device=device,
+        dropout=dropout,
+        max_sequence_len=max_sequence_len,
     )
 
     ## define optimizer
-    optimizer = torch.optim.Adam(params=siamese_lstm.parameters())
+    optimizer = torch.optim.Adam(params=siamese_transformer.parameters())
    
    ## train model
     train_model(
-        model=siamese_lstm,
+        model=siamese_transformer,
         optimizer=optimizer,
         dataloader=sick_dataloaders,
         data=sick_data,
         max_epochs=max_epochs,
-        config_dict={"device": device, "model_name": "siamese_lstm"},
+        config_dict={"device": device, "model_name": "siamese_transformer"},
     )
 ```
 

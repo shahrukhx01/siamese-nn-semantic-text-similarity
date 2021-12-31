@@ -15,9 +15,7 @@ def main():
     }
     dataset_name = "sick"
     sick_data = STSData(dataset_name=dataset_name, columns_mapping=columns_mapping)
-    sick_dataloaders = sick_data.get_data_loader(
-        normalize_labels=True, normalization_const=5.0
-    )
+    sick_dataloaders = sick_data.get_data_loader()
     batch_size = 64
     output_size = 1
     hidden_size = 128

@@ -21,9 +21,7 @@ def main():
         model_name="transformer",
         max_sequence_len=max_sequence_len,
     )
-    sick_dataloaders = sick_data.get_data_loader(
-        normalize_labels=True, normalization_const=5.0
-    )
+    sick_dataloaders = sick_data.get_data_loader()
     batch_size = 64
     output_size = 1
     hidden_size = 128
@@ -32,6 +30,7 @@ def main():
     embedding_size = 300
     embedding_weights = sick_data.vocab.vectors
     transformer_layers = 4
+    lstm_layers = 4
     learning_rate = 1e-1
 
     dropout = 0.5
@@ -50,6 +49,7 @@ def main():
         device=device,
         dropout=dropout,
         max_sequence_len=max_sequence_len,
+        lstm_layers=lstm_layers,
     )
 
     ## define optimizer and loss function

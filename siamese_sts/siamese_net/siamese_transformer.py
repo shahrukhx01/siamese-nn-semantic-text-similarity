@@ -6,6 +6,7 @@ import torch
 from torch import nn, Tensor
 import torch.nn.functional as F
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from torch.autograd import Variable
 from siamese_sts.utils.utils import similarity_score
 
 
@@ -44,9 +45,12 @@ class SiameseTransformer(nn.Module):
         embedding_weights: torch.Tensor,
         device: str,
         max_sequence_len: int,
+        lstm_layers: int,
         dropout: float = 0.5,
     ):
         super().__init__()
+        self.lstm_layers = lstm_layers
+        self.hidden_size = hidden_size
         self.device = device
         self.pos_encoder = PositionalEncoding(embedding_size, dropout)
         encoder_layers = TransformerEncoderLayer(
@@ -62,7 +66,7 @@ class SiameseTransformer(nn.Module):
             embedding_weights.to(self.device), requires_grad=True
         )
         self.embedding_size = embedding_size
-        self.linear = nn.Linear(embedding_size * max_sequence_len, hidden_size)
+        self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers=lstm_layers)
 
     def forward_once(self, src: Tensor) -> Tensor:
         """
@@ -77,11 +81,35 @@ class SiameseTransformer(nn.Module):
         src = self.pos_encoder(src)
 
         output = self.transformer_encoder(src)
-        output = output.reshape(output.shape[0], output.shape[1] * output.shape[2])
+        # permute embedded input to shape = (sequence_len, batch_size, embedding_size)
+        embeddings = output.permute(1, 0, 2)
 
-        return self.linear(output)
+        # perform forward pass of LSTM
+        output, (final_hidden_state, final_cell_state) = self.lstm(
+            embeddings, self.hidden
+        )
+
+        return final_hidden_state[-1]
+
+    def init_hidden(self, batch_size):
+        """
+        Initializes hidden and context weight matrix before each
+                forward pass through LSTM
+        """
+        return (
+            Variable(
+                torch.zeros(self.lstm_layers, batch_size, self.hidden_size).to(
+                    self.device
+                )
+            ),
+            Variable(torch.zeros(self.lstm_layers, batch_size, self.hidden_size)).to(
+                self.device
+            ),
+        )
 
     def forward(self, sent1_batch, sent2_batch, sent1_lengths, sent2_lengths) -> Tensor:
+        ## init context and hidden weights for lstm cell
+        self.hidden = self.init_hidden(sent1_batch.size(0))
         sent1_out = self.forward_once(sent1_batch)
         sent2_out = self.forward_once(sent2_batch)
 

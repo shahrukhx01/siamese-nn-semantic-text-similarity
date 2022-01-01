@@ -52,7 +52,7 @@ class SiameseTransformer(nn.Module):
         self.lstm_layers = lstm_layers
         self.hidden_size = hidden_size
         self.device = device
-        self.pos_encoder = PositionalEncoding(embedding_size, dropout)
+        self.pos_encoder = PositionalEncoding(embedding_size, dropout, max_sequence_len)
         encoder_layers = TransformerEncoderLayer(
             embedding_size, nhead, hidden_size, dropout
         )
